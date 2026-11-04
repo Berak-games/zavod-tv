@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- YouTube требует, чтобы плеер видел, с какого сайта он открыт (иначе «Ошибка 153»). -->
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Zavod TV</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #050505; overflow: hidden; }
+  #player { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #idle {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #6eff78; font: bold 28px monospace; text-align: center; gap: 18px;
+  }
+  #idle small { color: #3b8f42; font-size: 14px; font-weight: normal; }
+  #idle a { color: #3b8f42; }
+</style>
+</head>
+<body>
+<div id="player"></div>
+<div id="idle">
+  <div id="idleText">ZAVOD TV</div>
+  <small>Видео показывает официальный плеер YouTube.<br>
+  Смотря видео, ты соглашаешься с <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">Условиями YouTube</a>.</small>
+</div>
+<script>
+  // Страница для экрана электронной рамки в игре Zavod.
+  // Показывает ТОЛЬКО одно видео YouTube через официальный встроенный плеер (IFrame Player API).
+  // Ничего не скачивает и не сохраняет. Номер видео — в адресе: ?v=XXXXXXXXXXX (&t=секунды — с какого места).
+  var params = new URLSearchParams(location.search);
+  var id = params.get('v') || '';
+  var start = parseInt(params.get('t') || '0', 10) || 0;
+  var valid = /^[A-Za-z0-9_-]{11}$/.test(id);
+  var player = null, ready = false;
+
+  if (!valid) {
+    document.getElementById('idleText').textContent = id ? 'НЕВЕРНАЯ ССЫЛКА' : 'ZAVOD TV';
+  } else {
+    var tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+  }
+
+  function onYouTubeIframeAPIReady() {
+    player = new YT.Player('player', {
+      host: 'https://www.youtube.com',
+      videoId: id,
+      playerVars: { autoplay: 1, playsinline: 1, rel: 0, start: start, origin: location.origin },
+      events: {
+        onReady: function () { ready = true; document.getElementById('idle').style.display = 'none'; player.playVideo(); },
+        onError: function (e) {
+          // 101/150 — автор запретил показывать видео на других сайтах; 100 — видео нет.
+          document.getElementById('idle').style.display = 'flex';
+          document.getElementById('idleText').textContent =
+            (e.data === 101 || e.data === 150) ? 'АВТОР ЗАПРЕТИЛ ПОКАЗ ВНЕ YOUTUBE' : e.data === 100 ? 'ВИДЕО НЕ НАЙДЕНО' : 'ОШИБКА ПЛЕЕРА ' + e.data;
+        }
+      }
+    });
+  }
+
+  // Управление из игры (игра вызывает эти функции).
+  function zavodPlay()  { if (ready) player.playVideo(); }
+  function zavodPause() { if (ready) player.pauseVideo(); }
+  function zavodVolume(v) { if (ready) player.setVolume(Math.max(0, Math.min(100, v))); }
+  function zavodSeek(s) { if (ready) player.seekTo(Math.max(0, s), true); }
+  function zavodTime()  { return ready ? player.getCurrentTime() : 0; }
+</script>
+</body>
+</html>
